@@ -1,6 +1,53 @@
-# WXPush - 微信消息推送服务 (Cloudflare Workers)
+# WXPush Enhanced - 微信消息推送服务 (Cloudflare Workers)
+
+> **本项目是基于 [frankiejun/wxpush](https://github.com/frankiejun/wxpush) 的增强版本，由 [kiko923](https://github.com/kiko923) 二次开发。**
 
 这是一个基于 [Cloudflare Workers](https://workers.cloudflare.com/) 搭建的、轻量级的微信公众号模板消息推送服务。它提供了一个简单的 API 接口，让您可以轻松地通过 HTTP 请求将消息推送到指定的微信用户。
+
+## 🆕 增强功能
+
+相比原版，本增强版本新增了以下功能：
+
+✅ **统一 JSON 响应格式** - 所有接口响应（成功/失败）均为 JSON 格式  
+✅ **动态模板参数支持** - 支持任意微信模板参数，无需固定 title/content  
+✅ **增强错误处理** - 完善的 try-catch 错误捕获和详细错误信息  
+✅ **灵活参数传递** - 支持传递任意模板字段（如 thing11、character_string102 等）
+
+### JSON 响应格式
+
+**成功响应：**
+```json
+{
+  "code": 200,
+  "message": "ok"
+}
+```
+
+**失败响应：**
+```json
+{
+  "code": 0,
+  "message": "具体错误原因"
+}
+```
+
+### 动态模板参数
+
+现在支持传递任意微信模板参数，例如：
+
+```json
+{
+  "token": "your_token",
+  "template_id": "your_template_id",
+  "userid": "user_openid",
+  "thing11": "发起原因",
+  "thing2": "工单类型", 
+  "character_string102": "总数量",
+  "time9": "完成时间"
+}
+```
+
+系统会自动将所有非保留参数（除 token、userid、appid、secret、template_id、base_url 外）作为模板数据发送给微信接口。
 
 ## ✨ 特性
 
@@ -11,13 +58,11 @@
 ✅ 跳转稳定  
 ✅ 可无限换皮肤 (使用项目[wxpushSkin](https://github.com/frankiejun/wxpushSkin))
 
-## 🎬 视频教学
+## 🎬 部署教程
 
-我们制作了一个详细的视频教程，手把手教您如何完成所有部署步骤。如果您偏爱视频指导，请点击下方链接观看：
+本项目基于原版 WXPush 进行增强开发，基础部署方法与原版相同。如需视频教程，可参考原作者的教程：
 
-[<img src="https://look.pics.cloudns.ch/img/极简微信消息推送服务-封面.jpg" alt="点击观看视频教程" width="480">](https://youtu.be/sE1Kcol_XRs?si=G-UbUGlMhyysv-US)
-
-*点击上方图片或链接，即可跳转到 YouTube 观看视频教程。*
+[原版 WXPush 视频教程](https://youtu.be/sE1Kcol_XRs?si=G-UbUGlMhyysv-US) - 由 [frankiejun](https://github.com/frankiejun) 制作
 
 
 ## 🚀 部署指南
@@ -88,7 +133,7 @@
 
 ## ⚙️ API 使用方法
 
-服务部署成功后，您可以通过构造 URL 发起 `GET` 请求来推送消息。
+服务部署成功后，您可以通过构造 URL 发起 `GET` 请求或发送 `POST` 请求来推送消息。
 
 ### 请求地址
 
@@ -98,33 +143,51 @@ https://<您的Worker地址>/wxsend
 
 ### 请求参数
 
-| 参数名      | 类型   | 是否必填 | 描述                                           |
-|-------------|--------|----------|------------------------------------------------|
-| `token`     | String | 是       | 您在 `API_TOKEN` 中设置的访问令牌。            |
-| `title`     | String | 是       | 消息的标题。                                   |
-| `content`   | String | 是       | 消息的具体内容。                               |
-| `appid`     | String | 否       | 临时覆盖默认的微信 AppID。                     |
-| `secret`    | String | 否       | 临时覆盖默认的微信 AppSecret。                 |
-| `userid`    | String | 否       | 临时覆盖默认的接收用户 OpenID。                  |
-| `template_id`| String | 否       | 临时覆盖默认的模板消息 ID。                    |
-| `base_url`  | String | 否       | 临时覆盖默认的跳转 URL。                       |
+#### 必填参数
+
+| 参数名      | 类型   | 描述                                           |
+|-------------|--------|------------------------------------------------|
+| `token`     | String | 您在 `API_TOKEN` 中设置的访问令牌。            |
+
+#### 可选参数
+
+| 参数名      | 类型   | 描述                                           |
+|-------------|--------|------------------------------------------------|
+| `appid`     | String | 临时覆盖默认的微信 AppID。                     |
+| `secret`    | String | 临时覆盖默认的微信 AppSecret。                 |
+| `userid`    | String | 临时覆盖默认的接收用户 OpenID。                  |
+| `template_id`| String | 临时覆盖默认的模板消息 ID。                    |
+| `base_url`  | String | 临时覆盖默认的跳转 URL。                       |
+
+#### 动态模板参数
+
+除了上述保留参数外，您可以传递任意其他参数作为微信模板数据，例如：
+
+- `title` - 消息标题
+- `content` - 消息内容  
+- `thing11` - 微信模板中的 thing11 字段
+- `character_string102` - 微信模板中的 character_string102 字段
+- `time9` - 微信模板中的 time9 字段
+- 等等...
+
+系统会自动将这些参数格式化为微信 API 所需的格式。
 
 ### 使用示例
 
-**基础推送**
+#### 传统方式（兼容原版）
 
-向默认配置的所有用户推送一条消息：
+**基础推送**
 
 ```
 https://<您的Worker地址>/wxsend?title=服务器通知&content=服务已于北京时间%2022:00%20重启&token=your_secret_token
 ```
 
-**临时覆盖用户**
+#### 新增方式（动态模板参数）
 
-向一个临时指定的用户推送消息：
+**使用自定义模板参数**
 
 ```
-https://<您的Worker地址>/wxsend?title=私人提醒&content=记得带钥匙&token=your_secret_token&userid=temporary_openid_here
+https://<您的Worker地址>/wxsend?token=your_token&template_id=your_template&thing11=服务器报警&thing2=硬件故障&character_string102=10&time9=2023-10-27%2010:00:00
 ```
 
 ### Webhook / POST 请求
@@ -156,10 +219,25 @@ POST
 
 请求体需要是一个 JSON 对象，包含与 `GET` 请求相同的参数。
 
+#### 传统方式示例
+
 ```json
 {
   "title": "Webhook 通知",
   "content": "这是一个通过 POST 请求发送的 Webhook 消息。"
+}
+```
+
+#### 动态模板参数示例
+
+```json
+{
+  "template_id": "your_template_id",
+  "userid": "user_openid",
+  "thing11": "系统报警",
+  "thing2": "服务器故障",
+  "character_string102": "5",
+  "time9": "2023-12-21 15:30:00"
 }
 ```
 
@@ -168,21 +246,84 @@ POST
 ```bash
 curl -X POST \
   https://<您的Worker地址>/wxsend \
-  -H 'Authorization': '你的token' \
-  -H 'Content-Type': 'application/json' \
+  -H 'Authorization: 你的token' \
+  -H 'Content-Type: application/json' \
   -d '{
-    "title": "来自 cURL 的消息",
-    "content": "自动化任务已完成。"
+    "thing11": "来自 cURL 的消息",
+    "thing2": "自动化任务已完成"
   }'
 ```
 
-### 成功响应
+### 响应格式
 
-如果消息成功发送给至少一个用户，服务会返回 `HTTP 200` 状态码和类似 `Successfully sent messages to 1 user(s). First response: ok` 的文本。
+#### 成功响应
 
-### 失败响应
+如果消息成功发送给至少一个用户，服务会返回 `HTTP 200` 状态码和 JSON 响应：
 
-如果发生错误（如 token 错误、缺少参数、微信接口调用失败等），服务会返回相应的 `HTTP 4xx` 或 `5xx` 状态码和错误信息。
+```json
+{
+  "code": 200,
+  "message": "ok"
+}
+```
+
+#### 失败响应
+
+如果发生错误（如 token 错误、缺少参数、微信接口调用失败等），服务会返回相应的 `HTTP 4xx` 或 `5xx` 状态码和 JSON 错误信息：
+
+```json
+{
+  "code": 0,
+  "message": "具体错误原因"
+}
+```
+
+常见错误示例：
+- `{"code": 0, "message": "Missing required parameters: token"}`
+- `{"code": 0, "message": "Invalid token"}`
+- `{"code": 0, "message": "getStableToken failed: invalid appid"}`
+
+## 🔧 技术改进详情
+
+### 错误处理增强
+
+- 在 `getStableToken` 和 `sendMessage` 函数中添加了完善的 try-catch 错误捕获
+- 所有错误都会返回详细的错误信息，便于调试和问题定位
+- 网络请求失败、JSON 解析错误、微信 API 错误等都有相应的错误处理
+
+### 动态参数系统
+
+- 移除了对 `title` 和 `content` 的强制要求
+- 系统会自动识别并过滤保留参数：`token`、`userid`、`appid`、`secret`、`template_id`、`base_url`
+- 其他所有参数都会被作为模板数据传递给微信 API
+- 支持微信官方的所有模板参数类型（thing、character_string、time、date 等）
+
+### 响应格式统一
+
+- 成功响应：`{"code": 200, "message": "ok"}`
+- 失败响应：`{"code": 0, "message": "错误详情"}`
+- 所有 HTTP 状态码保持不变，便于现有系统集成
+
+## 📋 更新日志
+
+### v2.0.0 (Enhanced by kiko923)
+
+- ✅ 新增统一 JSON 响应格式
+- ✅ 新增动态模板参数支持
+- ✅ 增强错误处理和错误信息
+- ✅ 保持向后兼容性
+- ✅ 更新文档和示例
+
+### v1.0.0 (Original by frankiejun)
+
+- ✅ 基础微信模板消息推送功能
+- ✅ Cloudflare Workers 部署
+- ✅ 多用户支持
+- ✅ GET/POST 请求支持
+
+## 🙏 致谢
+
+感谢原作者 [frankiejun](https://github.com/frankiejun) 创建了优秀的 WXPush 项目，为微信消息推送提供了简洁高效的解决方案。本增强版本在保持原有功能的基础上，进一步提升了灵活性和易用性。
 
 ## 🤝 贡献
 

@@ -71,7 +71,13 @@ export default {
 
       // 1. Authenticate the token first
       if (rawTokenFromPath !== env.API_TOKEN) {
-        return new Response('Invalid token', { status: 403 });
+        return new Response(JSON.stringify({
+          code: 0,
+          message: 'Invalid token'
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json;charset=utf-8' }
+        });
       }
 
       // 2. Sanitize the token for safe embedding into HTML value attributes
@@ -300,8 +306,6 @@ export default {
       const params = await getParams(request);
 
       // MODIFIED: Read parameters from the unified 'params' object
-      const content = params.content;
-      const title = params.title;
       // token can come from body/url params or from Authorization header
       let requestToken = params.token;
       if (!requestToken) {
@@ -313,12 +317,24 @@ export default {
         }
       }
 
-      if (!content || !title || !requestToken) {
-        return new Response('Missing required parameters: content, title, token', { status: 400 });
+      if (!requestToken) {
+        return new Response(JSON.stringify({
+          code: 0,
+          message: 'Missing required parameters: token'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json;charset=utf-8' }
+        });
       }
 
       if (requestToken !== env.API_TOKEN) {
-        return new Response('Invalid token', { status: 403 });
+        return new Response(JSON.stringify({
+          code: 0,
+          message: 'Invalid token'
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json;charset=utf-8' }
+        });
       }
 
       const appid = params.appid || env.WX_APPID;
@@ -328,33 +344,64 @@ export default {
       const base_url = params.base_url || env.WX_BASE_URL;
 
       if (!appid || !secret || !useridStr || !template_id) {
-          return new Response('Missing required environment variables: WX_APPID, WX_SECRET, WX_USERID, WX_TEMPLATE_ID', { status: 500 });
+          return new Response(JSON.stringify({
+            code: 0,
+            message: 'Missing required environment variables: WX_APPID, WX_SECRET, WX_USERID, WX_TEMPLATE_ID'
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json;charset=utf-8' }
+          });
       }
 
       const user_list = useridStr.split('|').map(uid => uid.trim()).filter(Boolean);
 
+      // Extract all non-reserved parameters as template data
+      const reservedKeys = ['token', 'userid', 'appid', 'secret', 'template_id', 'base_url'];
+      const templateData = {};
+      for (const key in params) {
+        if (!reservedKeys.includes(key)) {
+          templateData[key] = params[key];
+        }
+      }
+
       try {
         const accessToken = await getStableToken(appid, secret);
-        if (!accessToken) {
-          return new Response('Failed to get access token', { status: 500 });
-        }
+        // accessToken check is handled inside getStableToken now
 
         const results = await Promise.all(user_list.map(userid =>
-          sendMessage(accessToken, userid, template_id, base_url, title, content)
+          sendMessage(accessToken, userid, template_id, base_url, templateData)
         ));
 
         const successfulMessages = results.filter(r => r.errmsg === 'ok');
 
         if (successfulMessages.length > 0) {
-          return new Response(`Successfully sent messages to ${successfulMessages.length} user(s). First response: ok`, { status: 200 });
+          return new Response(JSON.stringify({
+            code: 200,
+            message: 'ok'
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json;charset=utf-8' }
+          });
         } else {
           const firstError = results.length > 0 ? results[0].errmsg : "Unknown error";
-          return new Response(`Failed to send messages. First error: ${firstError}`, { status: 500 });
+          return new Response(JSON.stringify({
+            code: 0,
+            message: `Failed to send messages. First error: ${firstError}`
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json;charset=utf-8' }
+          });
         }
 
       } catch (error) {
         console.error('Error:', error);
-        return new Response(`An error occurred: ${error.message}`, { status: 500 });
+        return new Response(JSON.stringify({
+          code: 0,
+          message: error.message
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json;charset=utf-8' }
+        });
       }
     }
 
@@ -457,15 +504,15 @@ export default {
     <div class="card">
       <h1>WXPush</h1>
       <p>一个极简、可靠的微信消息推送服务，通过简单的 Webhook 请求，即可向微信用户发送模板消息。</p>
-      <div class="author">作者：<strong>饭奇骏</strong></div>
+      <div class="author">作者：<strong>kiko923</strong></div>
       <div class="icons">
-        <a class="btn" href="https://github.com/frankiejun" target="_blank" rel="noopener noreferrer">
+        <a class="btn" href="https://github.com/kiko923/wxpush" target="_blank" rel="noopener noreferrer">
           <svg class="icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 .5C5.73.5.75 5.48.75 11.75c0 4.93 3.2 9.11 7.64 10.59.56.1.76-.24.76-.53 0-.26-.01-.95-.02-1.87-3.11.68-3.77-1.5-3.77-1.5-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.12.08 1.71 1.15 1.71 1.15 1.0 1.72 2.62 1.22 3.26.93.1-.72.39-1.22.71-1.5-2.48-.28-5.09-1.24-5.09-5.53 0-1.22.44-2.21 1.16-2.99-.12-.28-.5-1.41.11-2.94 0 0 .95-.31 3.12 1.15.9-.25 1.86-.38 2.82-.39.96.01 1.92.14 2.82.39 2.17-1.46 3.12-1.15 3.12-1.15.61 1.53.23 2.66.11 2.94.72.78 1.16 1.77 1.16 2.99 0 4.3-2.62 5.25-5.11 5.53.4.35.75 1.04.75 2.09 0 1.51-.01 2.72-.01 3.09 0 .29.2.63.77.52C19.05 20.86 22.25 16.68 22.25 11.75 22.25 5.48 17.27.5 12 .5z"/></svg>
           GitHub
         </a>
-        <a class="btn" href="https://www.youtube.com/@frankiejun8965" target="_blank" rel="noopener noreferrer">
+        <a class="btn" href="https://github.com/kiko923" target="_blank" rel="noopener noreferrer">
           <svg class="icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M23.5 6.2s-.23-1.63-.94-2.34C21.55 3 19.9 3 19.12 2.9 16.54 2.6 12 2.6 12 2.6s-4.53 0-7.12.3C4.1 3 2.45 3.1 1.44 3.86.73 4.47.5 6.1.5 6.1S.25 8 .25 9.9v2.2c0 1.93.25 3.8.25 3.8s.23 1.63.94 2.34c.99.76 2.64.76 3.42.86 2.6.3 7.12.3 7.12.3s4.53 0 7.12-.3c.79-.1 2.44-.1 3.43-.86.7-.7.94-2.34.94-2.34s.25-1.9.25-3.8V9.9c0-1.9-.25-3.7-.25-3.7zM9.75 15.3V8.7l6.18 3.3-6.18 3.3z"/></svg>
-          YouTube
+          Profile
         </a>
       </div>
       <footer>点击上方图标前往关注，以获取更多项目更新和演示。</footer>
@@ -477,7 +524,13 @@ export default {
     }
 
     // For any other path/method, return 404
-    return new Response('Not Found', { status: 404 });
+    return new Response(JSON.stringify({
+      code: 0,
+      message: 'Not Found'
+    }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json;charset=utf-8' }
+    });
   },
 };
 
@@ -489,16 +542,23 @@ async function getStableToken(appid, secret) {
     secret: secret,
     force_refresh: false
   };
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
-  const data = await response.json();
-  return data.access_token;
+  try {
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!data.access_token) {
+      throw new Error(data.errmsg || 'Failed to get access token');
+    }
+    return data.access_token;
+  } catch (error) {
+    throw new Error(`getStableToken failed: ${error.message}`);
+  }
 }
 
-async function sendMessage(accessToken, userid, template_id, base_url, title, content) {
+async function sendMessage(accessToken, userid, template_id, base_url, templateData) {
   const sendUrl = `https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=${accessToken}`;
 
   // Create a Date object for Beijing time (UTC+8) by adding 8 hours to the current UTC time
@@ -506,24 +566,35 @@ async function sendMessage(accessToken, userid, template_id, base_url, title, co
   // Format the date to 'YYYY-MM-DD HH:MM:SS' string
   const date = beijingTime.toISOString().slice(0, 19).replace('T', ' ');
 
+  // Extract title and content for the URL, defaulting to empty string if not present
+  const title = templateData.title || '';
+  const content = templateData.content || '';
+
   const encoded_message = encodeURIComponent(content);
   const encoded_date = encodeURIComponent(date);
+
+  // Construct data object for WeChat API from templateData
+  const data = {};
+  for (const key in templateData) {
+    data[key] = { value: templateData[key] };
+  }
 
   const payload = {
     touser: userid,
     template_id: template_id,
     url: `${base_url}?message=${encoded_message}&date=${encoded_date}&title=${encodeURIComponent(title)}`,
-    data: {
-      title: { value: title },
-      content: { value: content }
-    }
+    data: data
   };
 
-  const response = await fetch(sendUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const response = await fetch(sendUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
 
-  return await response.json();
+    return await response.json();
+  } catch (error) {
+    return { errmsg: `SendMessage failed: ${error.message}` };
+  }
 }
